@@ -1,49 +1,74 @@
 {
   "Routes": [
+    // =================================================================
+    // PHẦN 1: CẤU HÌNH CHO USER SERVICE
+    // =================================================================
     {
-      // 1. CẤU HÌNH CHO USER SERVICE (Auth)
-      // Khách gọi: localhost:5000/auth/...
+      // 1.1. AUTHENTICATION (Đăng nhập/Đăng ký)
+      // Gọi qua Gateway: localhost:5000/auth/login
+      // Chạy về Render: userservice.../api/auth/login
       "UpstreamPathTemplate": "/auth/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
 
-      // Gateway chuyển tới: userservice (cổng 8080)
       "DownstreamPathTemplate": "/api/auth/{everything}",
-      "DownstreamScheme": "http",
+      "DownstreamScheme": "https",
       "DownstreamHostAndPorts": [
         {
-          "Host": "userservice",
-          "Port": 8080
+          "Host": "userservice-latest-p29g.onrender.com",
+          "Port": 443
         }
       ]
     },
     {
-      // 2. CẤU HÌNH CHO USER SERVICE (Profile)
-      // Khách gọi: localhost:5000/user/...
+      // 1.2. USER PROFILE & FEATURE (Lấy profile, tạo link giới thiệu)
+      // Gọi qua Gateway: localhost:5000/user/profile
+      // Chạy về Render: userservice.../api/user/profile
       "UpstreamPathTemplate": "/user/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
 
       "DownstreamPathTemplate": "/api/user/{everything}",
-      "DownstreamScheme": "http",
+      "DownstreamScheme": "https",
       "DownstreamHostAndPorts": [
         {
-          "Host": "userservice",
-          "Port": 8080
+          "Host": "userservice-latest-p29g.onrender.com",
+          "Port": 443
+        }
+      ]
+    },
+
+    // =================================================================
+    // PHẦN 2: CẤU HÌNH CHO SHORT URL SERVICE 
+    // =================================================================
+    {
+      // 2.1. API RÚT GỌN LINK 
+      // Gọi qua Gateway: localhost:5000/api/v1/shorten/shorten
+      // Chạy về Render: shorten-url.../api/Shortener/shorten
+      "UpstreamPathTemplate": "/api/v1/shorten/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "DELETE", "PUT" ],
+
+      "DownstreamPathTemplate": "/api/Shortener/{everything}",
+      "DownstreamScheme": "https",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "shorten-url-2zif.onrender.com",
+          "Port": 443
         }
       ]
     },
     {
-      // 3. CẤU HÌNH CHO SHORTEN URL SERVICE
-      // Khách gọi: localhost:5000/url/...
-      "UpstreamPathTemplate": "/url/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
+      // 2.2. [QUAN TRỌNG] ĐƯỜNG DẪN ĐIỀU HƯỚNG (REDIRECT)
+      // Cái này cần thêm để khi user bấm vào link ngắn, Gateway biết đường chuyển hướng
+      // Gọi qua Gateway: localhost:5000/code/abc1234
+      // Chạy về Render: shorten-url.../code/abc1234
+      "UpstreamPathTemplate": "/code/{everything}",
+      "UpstreamHttpMethod": [ "GET" ],
 
-      // Gateway chuyển tới: shortenurl-api (cổng 80 - theo file docker của bạn kia)
-      "DownstreamPathTemplate": "/api/url/{everything}",
-      "DownstreamScheme": "http",
+      "DownstreamPathTemplate": "/code/{everything}",
+      "DownstreamScheme": "https",
       "DownstreamHostAndPorts": [
         {
-          "Host": "shortenurl-api",
-          "Port": 80
+          "Host": "shorten-url-2zif.onrender.com",
+          "Port": 443
         }
       ]
     }
