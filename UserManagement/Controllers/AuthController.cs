@@ -78,7 +78,7 @@ namespace UserManagement.Controllers
 
         // 3. ĐĂNG NHẬP GOOGLE
         [HttpPost("google-login")]
-        public async Task<IActionResult> GoogleLogin(GoogleLoginRequestDto request)
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequestDto request) // Thêm [FromBody] để chắc chắn nhận đúng
         {
             try
             {
@@ -90,12 +90,14 @@ namespace UserManagement.Controllers
                     user = new User
                     {
                         Email = payload.Email,
+                        // Logic lấy phần trước @ làm username của bạn đã đúng ý muốn
                         Username = payload.Email.Split('@')[0],
                         GoogleId = payload.Subject,
                         Role = "User",
                         PasswordHash = null
                     };
 
+                    // Xử lý trùng username bằng cách thêm số ngẫu nhiên
                     if (await _context.Users.AnyAsync(u => u.Username == user.Username))
                     {
                         user.Username += new Random().Next(1000, 9999).ToString();
@@ -106,6 +108,7 @@ namespace UserManagement.Controllers
                 }
                 else
                 {
+                    // Cập nhật GoogleId nếu user cũ chưa có (trường hợp đã đk bằng email trước đó)
                     if (string.IsNullOrEmpty(user.GoogleId))
                     {
                         user.GoogleId = payload.Subject;
@@ -114,7 +117,20 @@ namespace UserManagement.Controllers
                 }
 
                 var token = _tokenService.CreateToken(user);
-                return Ok(new { message = "Google login successful", token = token, role = user.Role });
+
+                // --- PHẦN QUAN TRỌNG ĐÃ SỬA ---
+                // Trả về đầy đủ thông tin để Frontend hiển thị
+                return Ok(new
+                {
+                    message = "Google login successful",
+                    token = token,
+                    role = user.Role,
+                    // Thêm 3 trường dưới đây:
+                    id = user.Id,            // Cần thiết để gọi API user profile
+                    username = user.Username,// Để hiển thị tên (phần trước @)
+                    email = user.Email       // Để hiển thị email và fix lỗi "missing email"
+                });
+                // -----------------------------
             }
             catch (Exception ex)
             {
