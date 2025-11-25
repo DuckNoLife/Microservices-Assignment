@@ -8,12 +8,19 @@ using UserManagement.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // -----------------------------------------------------------------
-// 1. KẾT NỐI DATABASE (Đã chỉnh sửa để đổi qua lại)
+// 1. KẾT NỐI DATABASE (FIX CỨNG LỖI DỰ PHÒNG CHUỖI KẾT NỐI SAI)
 // -----------------------------------------------------------------
 
-// Lấy chuỗi kết nối từ cấu hình (appsettings hoặc biến môi trường)
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-                       ?? "Server=(localdb)\\ProjectModels;Database=UserManagementDb;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
+// Lấy chuỗi kết nối từ cấu hình (Render sẽ cung cấp chuỗi Postgres)
+// Nếu Render không cung cấp, connectionString sẽ là NULL (ứng dụng sẽ báo lỗi ngay)
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+if (string.IsNullOrEmpty(connectionString))
+{
+    // Đây là lỗi FATAL. Ứng dụng phải dừng lại ngay để tránh lỗi format DB
+    throw new Exception("FATAL: Connection string is missing. Please check the 'ConnectionStrings__DefaultConnection' variable on Render.");
+}
+
 
 builder.Services.AddDbContext<UserDbContext>(options =>
 {
@@ -33,7 +40,7 @@ builder.Services.AddDbContext<UserDbContext>(options =>
 });
 
 // -----------------------------------------------------------------
-// 2. CÁC SERVICE KHÁC (Giữ nguyên không đổi)
+// 2. CÁC SERVICE KHÁC (Giữ nguyên)
 // -----------------------------------------------------------------
 
 builder.Services.AddScoped<ITokenService, TokenService>();
@@ -112,12 +119,12 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<UserDbContext>();
-        // Lệnh này hoạt động tốt cho cả SQL Server và Postgres
         context.Database.EnsureCreated();
         Console.WriteLine("--> Database created/connected successfully!");
     }
     catch (Exception ex)
     {
+        // Nếu lỗi, nó sẽ báo lỗi chuẩn và dừng lại, thay vì báo lỗi format vô lý
         Console.WriteLine("--> Error creating database: " + ex.Message);
     }
 }
