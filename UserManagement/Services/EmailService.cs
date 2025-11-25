@@ -1,6 +1,7 @@
-﻿using Microsoft.Extensions.Configuration;
-using System.Net;
-using System.Net.Mail;
+﻿using MailKit.Net.Smtp; // Lưu ý: Dùng của MailKit, không dùng System.Net.Mail
+using Microsoft.Extensions.Configuration;
+using MimeKit;
+using System.Threading.Tasks;
 using UserManagement.Services;
 
 public class EmailService : IEmailService
@@ -14,43 +15,47 @@ public class EmailService : IEmailService
 
     public async Task SendEmailAsync(string to, string subject, string body)
     {
-        // 1. Đọc cấu hình từ appsettings.json
+        // Đọc config
         var emailSettings = _configuration.GetSection("EmailSettings");
-        var mail = emailSettings["Email"];
-        var pw = emailSettings["Password"];
-        var host = emailSettings["Host"];
-        // Đảm bảo đọc Port là số int, nếu lỗi thì fallback về 587
-        var port = int.TryParse(emailSettings["Port"], out int p) ? p : 587;
+        var emailFrom = emailSettings["Email"];    // Email gửi (Gmail của bạn)
+        var password = emailSettings["Password"];  // App Password 16 ký tự
+        var host = "smtp.gmail.com";
+        var port = 587;
 
-        // 2. Khởi tạo SmtpClient
-        var client = new SmtpClient(host, port)
-        {
-            EnableSsl = true, // Gmail bắt buộc
-            Credentials = new NetworkCredential(mail, pw),
-            DeliveryMethod = SmtpDeliveryMethod.Network,
-            UseDefaultCredentials = false,
-        };
+        var email = new MimeMessage();
+        email.From.Add(MailboxAddress.Parse(emailFrom));
+        email.To.Add(MailboxAddress.Parse(to));
+        email.Subject = subject;
 
-        var mailMessage = new MailMessage
-        {
-            From = new MailAddress(mail),
-            Subject = subject,
-            Body = body,
-            IsBodyHtml = true
-        };
+        // Tạo nội dung email (HTML)
+        var builder = new BodyBuilder();
+        builder.HtmlBody = body;
+        email.Body = builder.ToMessageBody();
 
-        mailMessage.To.Add(to);
-
-        // 3. Gửi mail
+        // Gửi email bằng MailKit
+        using var smtp = new SmtpClient();
         try
         {
-            await client.SendMailAsync(mailMessage);
+            // Connect: host, port, useSsl (false cho port 587 vì nó dùng StartTls)
+            // MailKit thông minh hơn, nó sẽ tự switch sang SecureSocketOptions.StartTls
+            await smtp.ConnectAsync(host, port, MailKit.Security.SecureSocketOptions.StartTls);
+
+            // Authenticate
+            await smtp.AuthenticateAsync(emailFrom, password);
+
+            // Send
+            await smtp.SendAsync(email);
+
+            Console.WriteLine("--> Gửi email thành công!");
         }
         catch (Exception ex)
         {
-            // Log lỗi ra để debug nếu cần
-            Console.WriteLine($"Gửi mail thất bại: {ex.Message}");
-            throw;
+            Console.WriteLine($"--> Lỗi gửi mail MailKit: {ex.Message}");
+            throw; // Ném lỗi để Controller biết
+        }
+        finally
+        {
+            await smtp.DisconnectAsync(true);
         }
     }
 }
