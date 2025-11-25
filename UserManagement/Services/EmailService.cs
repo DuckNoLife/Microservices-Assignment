@@ -1,8 +1,8 @@
-﻿using MailKit.Net.Smtp;
-using MailKit.Security;
-using Microsoft.Extensions.Configuration;
-using MimeKit;
+﻿using Microsoft.Extensions.Configuration;
 using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Net.Http.Json; // Cần cái này để bắn JSON
 using System.Threading.Tasks;
 using UserManagement.Services;
 
@@ -17,60 +17,56 @@ public class EmailService : IEmailService
 
     public async Task SendEmailAsync(string to, string subject, string body)
     {
-        // 1. Lấy thông tin từ cấu hình (Render Environment hoặc appsettings.json)
+        // 1. Lấy API Key từ cấu hình (Vẫn dùng cái mã xsmtpsib-... cũ)
         var emailSettings = _configuration.GetSection("EmailSettings");
+        var apiKey = emailSettings["Password"];
 
-        // QUAN TRỌNG: Lấy thông tin đăng nhập
-        var emailLogin = emailSettings["Email"];    // Đây là cái mail lạ lạ (9c8522...)
-        var password = emailSettings["Password"];   // Đây là mã Key dài (xsmtpsib...)
+        // 2. Cấu hình gửi qua API (Không dùng SMTP nữa nên không lo bị chặn Port)
+        var url = "https://api.brevo.com/v3/smtp/email";
 
-        // Sender Name: Khi gửi mail sẽ hiện tên này (Bạn có thể sửa lại)
-        var senderName = "Do An Tot Nghiep";
-        // Sender Email: Brevo yêu cầu email gửi (From) phải là email bạn đã Verify
-        // (Là cái email taolaita789@gmail.com trong Profile của bạn)
+        // Sender phải là email bạn đã verify trong Brevo (Email cá nhân của bạn)
+        // Tôi để cứng email Gmail của bạn ở đây để chắc chắn chạy
         var senderEmail = "taolaita789@gmail.com";
+        var senderName = "Do An Tot Nghiep";
 
-        // 2. CẤU HÌNH CỨNG CHO BREVO (Để đảm bảo không bao giờ sai)
-        var host = "smtp-relay.brevo.com";
-        var port = 587;
+        // 3. Tạo cục dữ liệu JSON theo chuẩn của Brevo API
+        var payload = new
+        {
+            sender = new { name = senderName, email = senderEmail },
+            to = new[] { new { email = to } },
+            subject = subject,
+            htmlContent = body
+        };
 
-        var email = new MimeMessage();
-        email.From.Add(new MailboxAddress(senderName, senderEmail));
-        email.To.Add(MailboxAddress.Parse(to));
-        email.Subject = subject;
+        // 4. Bắn Request HTTP
+        using var client = new HttpClient();
 
-        var builder = new BodyBuilder();
-        builder.HtmlBody = body;
-        email.Body = builder.ToMessageBody();
+        // Thêm Key vào Header
+        client.DefaultRequestHeaders.Add("api-key", apiKey);
+        client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 
-        using var smtp = new SmtpClient();
         try
         {
-            smtp.Timeout = 10000; // 10 giây
+            Console.WriteLine($"[Brevo API] Sending to {to}...");
 
-            Console.WriteLine($"[Brevo SMTP] Connecting to {host}:{port}...");
+            var response = await client.PostAsJsonAsync(url, payload);
 
-            // BẮT BUỘC: Brevo dùng StartTls
-            await smtp.ConnectAsync(host, port, SecureSocketOptions.StartTls);
-
-            Console.WriteLine($"[Brevo SMTP] Authenticating as {emailLogin}...");
-
-            // Đăng nhập bằng tài khoản Login riêng của SMTP
-            await smtp.AuthenticateAsync(emailLogin, password);
-
-            Console.WriteLine("[Brevo SMTP] Sending...");
-            await smtp.SendAsync(email);
-
-            Console.WriteLine("[Brevo SMTP] --> SUCCESS! Email sent.");
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("[Brevo API] --> SUCCESS! Email sent.");
+            }
+            else
+            {
+                // Nếu lỗi thì đọc nội dung lỗi từ Brevo trả về
+                var errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"[Brevo API ERROR] Status: {response.StatusCode}, Details: {errorContent}");
+                throw new Exception($"Gửi mail thất bại: {errorContent}");
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Brevo ERROR] {ex.Message}");
+            Console.WriteLine($"[Brevo API CRASH] {ex.Message}");
             throw;
-        }
-        finally
-        {
-            await smtp.DisconnectAsync(true);
         }
     }
 }
