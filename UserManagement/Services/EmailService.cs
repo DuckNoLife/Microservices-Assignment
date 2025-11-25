@@ -1,6 +1,8 @@
-﻿using MailKit.Net.Smtp; // Lưu ý: Dùng của MailKit, không dùng System.Net.Mail
+﻿using MailKit.Net.Smtp;
+using MailKit.Security; // BẮT BUỘC CÓ
 using Microsoft.Extensions.Configuration;
 using MimeKit;
+using System;
 using System.Threading.Tasks;
 using UserManagement.Services;
 
@@ -15,43 +17,47 @@ public class EmailService : IEmailService
 
     public async Task SendEmailAsync(string to, string subject, string body)
     {
-        // Đọc config
+        // 1. Lấy thông tin từ cấu hình
         var emailSettings = _configuration.GetSection("EmailSettings");
-        var emailFrom = emailSettings["Email"];    // Email gửi (Gmail của bạn)
-        var password = emailSettings["Password"];  // App Password 16 ký tự
+        var emailFrom = emailSettings["Email"];
+        var password = emailSettings["Password"]; // App Password
+
+        // 2. Cấu hình cứng cho Gmail (Dùng Port 465 + SSL để fix lỗi Timeout)
         var host = "smtp.gmail.com";
-        var port = 587;
+        var port = 465;
 
         var email = new MimeMessage();
         email.From.Add(MailboxAddress.Parse(emailFrom));
         email.To.Add(MailboxAddress.Parse(to));
         email.Subject = subject;
 
-        // Tạo nội dung email (HTML)
         var builder = new BodyBuilder();
         builder.HtmlBody = body;
         email.Body = builder.ToMessageBody();
 
-        // Gửi email bằng MailKit
         using var smtp = new SmtpClient();
         try
         {
-            // Connect: host, port, useSsl (false cho port 587 vì nó dùng StartTls)
-            // MailKit thông minh hơn, nó sẽ tự switch sang SecureSocketOptions.StartTls
-            await smtp.ConnectAsync(host, port, MailKit.Security.SecureSocketOptions.StartTls);
+            // Tăng thời gian chờ lên 20s
+            smtp.Timeout = 20000;
 
-            // Authenticate
+            Console.WriteLine($"[Gmail Log] Connecting to {host}:{port}...");
+
+            // QUAN TRỌNG: Dùng SslOnConnect cho Port 465
+            await smtp.ConnectAsync(host, port, SecureSocketOptions.SslOnConnect);
+
+            Console.WriteLine("[Gmail Log] Authenticating...");
             await smtp.AuthenticateAsync(emailFrom, password);
 
-            // Send
+            Console.WriteLine("[Gmail Log] Sending...");
             await smtp.SendAsync(email);
 
-            Console.WriteLine("--> Gửi email thành công!");
+            Console.WriteLine("[Gmail Log] --> SUCCESS! Email sent.");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"--> Lỗi gửi mail MailKit: {ex.Message}");
-            throw; // Ném lỗi để Controller biết
+            Console.WriteLine($"[Gmail Log] ERROR: {ex.Message}");
+            throw;
         }
         finally
         {
