@@ -43,8 +43,8 @@ namespace UserManagement.Controllers
 
             var user = new User
             {
-                Email = request.Email, // Lưu nguyên bản (hoặc lưu emailToCheck tùy bạn)
-                Username = request.Username,
+                Email = request.Email.Trim(), // Lưu nguyên bản (hoặc lưu emailToCheck tùy bạn)
+                Username = request.Username.Trim(),
                 PasswordHash = passwordHash,
                 Role = "User"
             };
