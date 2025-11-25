@@ -124,7 +124,7 @@ namespace UserManagement.Controllers
         }
 
         // 4. QUÊN MẬT KHẨU
-        [HttpPost("forgot-password")]
+        [HttpPost("/forgot-password")]
         public async Task<IActionResult> ForgotPassword(ForgotPasswordRequestDto request)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
@@ -139,7 +139,8 @@ namespace UserManagement.Controllers
             user.ResetTokenExpires = DateTime.UtcNow.AddMinutes(15);
             await _context.SaveChangesAsync();
 
-            var resetLink = $"http://localhost:3000/reset-password?token={token}";
+            var frontendUrl = "https://fe-render.onrender.com"; // Link Frontend trên Render
+            var resetLink = $"{frontendUrl}/reset-password?token={token}";
             await _emailService.SendEmailAsync(user.Email, "Reset Password Request", $"Click here: {resetLink}");
 
             return Ok(new { message = "Password reset link sent to email." });
