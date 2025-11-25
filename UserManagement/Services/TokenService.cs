@@ -24,7 +24,7 @@ namespace UserManagement.Services
             {
                 new Claim(JwtRegisteredClaimNames.Email, user.Email),
                 new Claim(JwtRegisteredClaimNames.NameId, user.Id.ToString()),
-                // --- MỚI: Thêm dòng này để Token chứa quyền (Admin hay User) ---
+                // ---  Thêm dòng này để Token chứa quyền (Admin hay User) ---
                 new Claim(ClaimTypes.Role, user.Role)
             };
 

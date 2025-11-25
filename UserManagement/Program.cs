@@ -32,23 +32,23 @@ builder.Services.AddDbContext<UserDbContext>(options =>
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 
-// 👇 [QUAN TRỌNG] ĐĂNG KÝ SERVICE URL SHORTENER CLIENT
+//  ĐĂNG KÝ SERVICE URL SHORTENER CLIENT
 // (Phải có dòng này thì mới dùng được UrlShortenerClient trong UserService)
 builder.Services.AddScoped<IUrlShortenerClient, UrlShortenerClient>();
-// 👆 -------------------------------------------------------------
+//  -------------------------------------------------------------
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// 👇 ĐĂNG KÝ HTTP CLIENT ĐỂ GỌI SANG SERVICE URL SHORTENER
+//  ĐĂNG KÝ HTTP CLIENT ĐỂ GỌI SANG SERVICE URL SHORTENER
 builder.Services.AddHttpClient("UrlShortenerService", client =>
 {
     // Đây là link Service URL Shortener của bạn
     client.BaseAddress = new Uri("https://shorten-url-2zif.onrender.com/");
 });
-// 👆 -------------------------------------------------------------
+//  -------------------------------------------------------------
 
-// 👇 SỬA LỖI CÚ PHÁP SWAGGER/OPENAPI SECURITY REQUIREMENT
+//  SỬA LỖI CÚ PHÁP SWAGGER/OPENAPI SECURITY REQUIREMENT
 builder.Services.AddSwaggerGen(options =>
 {
     // 1. Cấu hình Security Definition

@@ -1,6 +1,6 @@
 ﻿using UserManagement.Models;
 
-namespace UserManagement.Services // <<< Sửa thành UserManagement
+namespace UserManagement.Services 
 {
     public interface ITokenService
     {

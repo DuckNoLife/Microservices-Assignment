@@ -24,7 +24,7 @@ namespace UserManagement.Controllers
                               ITokenService tokenService,
                               IConfiguration config,
                               IEmailService emailService,
-                              IUrlShortenerClient urlShortener) // 👈 Nhớ thêm vào đây
+                              IUrlShortenerClient urlShortener) 
         {
             _context = context;
             _tokenService = tokenService;
@@ -148,7 +148,7 @@ namespace UserManagement.Controllers
             // Link gốc (dài)
             var longResetLink = $"{frontendUrl}/reset-password?token={token}";
 
-            // 👇 GỌI SERVICE RÚT GỌN LINK
+    
             string finalLink = longResetLink; // Mặc định dùng link dài
             try
             {

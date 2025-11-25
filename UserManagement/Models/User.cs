@@ -16,8 +16,8 @@ namespace UserManagement.Models
 
         public string? PasswordHash { get; set; }
 
-        // --- MỚI: Thêm Role để phân biệt Admin và User thường ---
-        public string Role { get; set; } = "User"; // Mặc định ai đăng ký cũng là User
+        // ---  Role để phân biệt Admin và User thường ---
+        public string Role { get; set; } = "User"; 
 
         public string? GoogleId { get; set; }
         public string? PasswordResetToken { get; set; }

@@ -5,7 +5,7 @@ using System.Security.Claims;
 using UserManagement.Data;
 using UserManagement.DTOs;
 using UserManagement.Models;
-using UserManagement.Services; // 👈 Nhớ using namespace này
+using UserManagement.Services; 
 
 namespace UserManagement.Controllers
 {
@@ -15,7 +15,7 @@ namespace UserManagement.Controllers
     public class UserController : ControllerBase
     {
         private readonly UserDbContext _context;
-        private readonly IUrlShortenerClient _urlShortener; // 👈 1. Khai báo service
+        private readonly IUrlShortenerClient _urlShortener; 
 
         // 2. Tiêm service vào Constructor
         public UserController(UserDbContext context, IUrlShortenerClient urlShortener)
@@ -74,7 +74,7 @@ namespace UserManagement.Controllers
             return Ok(new { user.Id, user.Username, user.Email, user.GoogleId, user.Role });
         }
 
-        // 👇 [TÍNH NĂNG MỚI] Tạo Link giới thiệu rút gọn cho User
+        
         // User gọi API này -> Hệ thống gọi sang Service Shortener -> Trả về link ngắn
         [HttpPost("create-referral-link")]
         public async Task<IActionResult> CreateReferralLink()
@@ -93,7 +93,7 @@ namespace UserManagement.Controllers
             if (string.IsNullOrEmpty(shortUrl))
             {
                 // Nếu bên kia lỗi, trả về link gốc luôn (fallback)
-                return Ok(new { link = longUrl, note = "Service rút gọn đang bận, dùng link gốc tạm nhé." });
+                return Ok(new { link = longUrl, note = "Service maintance." });
             }
 
             return Ok(new { link = shortUrl });
