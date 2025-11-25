@@ -5,42 +5,35 @@ using System.Text;
 using UserManagement.Data;
 using UserManagement.Services;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // -----------------------------------------------------------------
-// 1. KẾT NỐI DATABASE (FIX CUỐI CÙNG: Lấy BIẾN MÔI TRƯỜNG TRỰC TIẾP)
+// 1. KẾT NỐI DATABASE
 // -----------------------------------------------------------------
 
-// Lấy chuỗi kết nối từ biến môi trường (Render sẽ cung cấp chuỗi Postgres)
-// Nếu biến môi trường không tồn tại, nó sẽ trả về NULL.
-var connectionString = builder.Configuration["ConnectionStrings:DefaultConnection"];
-
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 if (string.IsNullOrEmpty(connectionString))
 {
-    // Nếu biến môi trường bị lỗi hoặc rỗng, ứng dụng sẽ crash ngay 
-    throw new Exception("FATAL: Connection string is missing. Please check the 'ConnectionStrings__DefaultConnection' variable on Render.");
+    // Nếu biến môi trường bị lỗi, ứng dụng sẽ crash ngay 
+    throw new Exception("FATAL: Connection string is missing. Please check the 'ConnectionStrings__DefaultConnection' variable on Render.");
 }
+
 
 builder.Services.AddDbContext<UserDbContext>(options =>
 {
-    // ========================================================================
-    // KHU VỰC CHUYỂN ĐỔI DATABASE (Chọn 1 trong 2, comment cái còn lại)
-    // ========================================================================
+    // 👉 Dùng PostgreSQL
+    options.UseNpgsql(connectionString);
 
-    // 👉 LỰA CHỌN 1: Dùng PostgreSQL (ĐANG BẬT - Dùng cho Render Cloud)
-    options.UseNpgsql(connectionString);
-
-    // 👉 LỰA CHỌN 2: Dùng SQL Server (CODE CŨ - ĐANG TẮT - Dùng cho Local/Docker cũ)
-    /*
-    options.UseSqlServer(connectionString);
-    */
-
-    // ========================================================================
+    // 👉 CODE CŨ (Đang TẮT)
+    /*
+    options.UseSqlServer(connectionString);
+    */
 });
 
 // -----------------------------------------------------------------
-// 2. CÁC SERVICE KHÁC (Giữ nguyên)
+// 2. CÁC SERVICE KHÁC
 // -----------------------------------------------------------------
 
 builder.Services.AddScoped<ITokenService, TokenService>();
@@ -48,9 +41,11 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
+// 👇 SỬA LỖI CÚ PHÁP SWAGGER/OPENAPI SECURITY REQUIREMENT
 builder.Services.AddSwaggerGen(options =>
 {
-    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    // 1. Cấu hình Security Definition (Giữ nguyên)
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Name = "Authorization",
         Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
@@ -59,20 +54,24 @@ builder.Services.AddSwaggerGen(options =>
         In = Microsoft.OpenApi.Models.ParameterLocation.Header,
         Description = "Nhập token Admin vào đây"
     });
-    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+
+    // 2. Cấu hình Security Requirement (ĐÃ SỬA LỖI CS1922 - Khởi tạo Dictionary)
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+  {
     {
+            // Key: OpenApiSecurityScheme
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+      {
+        Reference = new Microsoft.OpenApi.Models.OpenApiReference
         {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-            {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new string[] {}
+          Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+          Id = "Bearer"
         }
-    });
+      },
+            // Value: List<string> (Scopes)
+            new List<string>()
+    }
+  });
 });
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "1234567890qwertyuiopgsdgsdgsdgsdgsdgsdgsdgdsgsdgsdgsdgdsgsdgsdgdsgsdrewwetwetewtwetewtewtwetwetwetewweewrwererwerwerewrwerwerwerwe";
@@ -100,12 +99,12 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend",
-        policy =>
-        {
-            policy.WithOrigins("http://localhost:3000", "http://localhost:5173")
-                  .AllowAnyHeader()
-                  .AllowAnyMethod();
-        });
+      policy =>
+      {
+          policy.WithOrigins("http://localhost:3000", "http://localhost:5173")
+           .AllowAnyHeader()
+           .AllowAnyMethod();
+      });
 });
 
 var app = builder.Build();
