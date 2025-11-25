@@ -16,21 +16,27 @@ namespace UserManagement.Controllers
         private readonly UserDbContext _context;
         private readonly ITokenService _tokenService;
         private readonly IEmailService _emailService;
+        private readonly IUrlShortenerClient _urlShortener; // 👈 1. Khai báo Shortener Service
         private readonly IConfiguration _config;
 
-        public AuthController(UserDbContext context, ITokenService tokenService, IConfiguration config, IEmailService emailService)
+        // 2. Inject vào Constructor
+        public AuthController(UserDbContext context,
+                              ITokenService tokenService,
+                              IConfiguration config,
+                              IEmailService emailService,
+                              IUrlShortenerClient urlShortener) // 👈 Nhớ thêm vào đây
         {
             _context = context;
             _tokenService = tokenService;
             _config = config;
             _emailService = emailService;
+            _urlShortener = urlShortener;
         }
 
         // 1. ĐĂNG KÝ
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterRequestDto request)
         {
-            // Chuẩn hóa input để tránh lỗi trùng lặp do hoa/thường
             var emailToCheck = request.Email.Trim().ToLower();
 
             if (await _context.Users.AnyAsync(u => u.Email.ToLower() == emailToCheck))
@@ -43,7 +49,7 @@ namespace UserManagement.Controllers
 
             var user = new User
             {
-                Email = request.Email.Trim(), // Lưu nguyên bản (hoặc lưu emailToCheck tùy bạn)
+                Email = request.Email.Trim(),
                 Username = request.Username.Trim(),
                 PasswordHash = passwordHash,
                 Role = "User"
@@ -116,46 +122,49 @@ namespace UserManagement.Controllers
             }
         }
 
-        // 4. QUÊN MẬT KHẨU (ĐÃ SỬA LOGIC CHECK LỖI)
-        [HttpPost("/forgot-password")] // Giữ nguyên dấu / ở đầu để khớp với frontend
+        // 4. QUÊN MẬT KHẨU (ĐÃ NÂNG CẤP: Rút gọn link reset)
+        [HttpPost("/forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto request)
         {
-            // -- DEBUG LOG -- (Xem trong Render Logs)
-            Console.WriteLine($"[DEBUG] ForgotPassword called. Raw Email: '{request?.Email}'");
-
-            // 1. Kiểm tra dữ liệu đầu vào
             if (request == null || string.IsNullOrWhiteSpace(request.Email))
             {
-                return BadRequest("Lỗi: Server nhận được Email rỗng. Kiểm tra lại Frontend (biến phải tên là 'email').");
+                return BadRequest("Lỗi: Server nhận được Email rỗng.");
             }
 
-            // 2. Chuẩn hóa chuỗi (Cắt khoảng trắng + Chữ thường)
             var inputEmail = request.Email.Trim().ToLower();
-
-            // 3. Tìm kiếm trong DB (So sánh chữ thường để tránh lỗi PostgreSQL case-sensitive)
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == inputEmail);
 
-            // 4. Báo lỗi chi tiết nếu không tìm thấy
-            if (user == null)
-            {
-                Console.WriteLine($"[DEBUG] Không tìm thấy user nào khớp với: {inputEmail}");
-                return BadRequest($"User not found. (Server đã tìm email: '{inputEmail}' nhưng không thấy)");
-            }
+            if (user == null) return BadRequest($"User not found.");
 
-            // 5. Kiểm tra tài khoản Google
             if (string.IsNullOrEmpty(user.PasswordHash))
                 return BadRequest("Google account cannot reset password.");
 
-            // 6. Tạo Token và Gửi Mail
             var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(64));
             user.PasswordResetToken = token;
             user.ResetTokenExpires = DateTime.UtcNow.AddMinutes(15);
             await _context.SaveChangesAsync();
 
             var frontendUrl = "https://fe-render.onrender.com";
-            var resetLink = $"{frontendUrl}/reset-password?token={token}";
+            // Link gốc (dài)
+            var longResetLink = $"{frontendUrl}/reset-password?token={token}";
 
-            await _emailService.SendEmailAsync(user.Email, "Reset Password Request", $"Click here: {resetLink}");
+            // 👇 GỌI SERVICE RÚT GỌN LINK
+            string finalLink = longResetLink; // Mặc định dùng link dài
+            try
+            {
+                var shortLink = await _urlShortener.ShortenUrlAsync(longResetLink);
+                if (!string.IsNullOrEmpty(shortLink))
+                {
+                    finalLink = shortLink; // Nếu rút gọn thành công thì dùng link ngắn
+                }
+            }
+            catch (Exception)
+            {
+                // Nếu lỗi kết nối service shortener thì kệ, vẫn gửi link dài
+            }
+
+            // Gửi email chứa link (ngắn hoặc dài)
+            await _emailService.SendEmailAsync(user.Email, "Reset Password Request", $"Click here to reset: {finalLink}");
 
             return Ok(new { message = "Password reset link sent to email." });
         }

@@ -5,7 +5,6 @@ using System.Text;
 using UserManagement.Data;
 using UserManagement.Services;
 
-
 var builder = WebApplication.CreateBuilder(args);
 
 // -----------------------------------------------------------------
@@ -16,20 +15,14 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 
 if (string.IsNullOrEmpty(connectionString))
 {
-    // Nếu biến môi trường bị lỗi, ứng dụng sẽ crash ngay 
-    throw new Exception("FATAL: Connection string is missing. Please check the 'ConnectionStrings__DefaultConnection' variable on Render.");
+    // Nếu biến môi trường bị lỗi, ứng dụng sẽ crash ngay 
+    throw new Exception("FATAL: Connection string is missing. Please check the 'ConnectionStrings__DefaultConnection' variable on Render.");
 }
-
 
 builder.Services.AddDbContext<UserDbContext>(options =>
 {
-    // 👉 Dùng PostgreSQL
-    options.UseNpgsql(connectionString);
-
-    // 👉 CODE CŨ (Đang TẮT)
-    /*
-    options.UseSqlServer(connectionString);
-    */
+    // 👉 Dùng PostgreSQL
+    options.UseNpgsql(connectionString);
 });
 
 // -----------------------------------------------------------------
@@ -38,14 +31,28 @@ builder.Services.AddDbContext<UserDbContext>(options =>
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+
+// 👇 [QUAN TRỌNG] ĐĂNG KÝ SERVICE URL SHORTENER CLIENT
+// (Phải có dòng này thì mới dùng được UrlShortenerClient trong UserService)
+builder.Services.AddScoped<IUrlShortenerClient, UrlShortenerClient>();
+// 👆 -------------------------------------------------------------
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+// 👇 ĐĂNG KÝ HTTP CLIENT ĐỂ GỌI SANG SERVICE URL SHORTENER
+builder.Services.AddHttpClient("UrlShortenerService", client =>
+{
+    // Đây là link Service URL Shortener của bạn
+    client.BaseAddress = new Uri("https://shorten-url-2zif.onrender.com/");
+});
+// 👆 -------------------------------------------------------------
 
 // 👇 SỬA LỖI CÚ PHÁP SWAGGER/OPENAPI SECURITY REQUIREMENT
 builder.Services.AddSwaggerGen(options =>
 {
-    // 1. Cấu hình Security Definition (Giữ nguyên)
-    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    // 1. Cấu hình Security Definition
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Name = "Authorization",
         Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
@@ -55,23 +62,21 @@ builder.Services.AddSwaggerGen(options =>
         Description = "Nhập token Admin vào đây"
     });
 
-    // 2. Cấu hình Security Requirement (ĐÃ SỬA LỖI CS1922 - Khởi tạo Dictionary)
-    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
-  {
+    // 2. Cấu hình Security Requirement
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
     {
-            // Key: OpenApiSecurityScheme
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-      {
-        Reference = new Microsoft.OpenApi.Models.OpenApiReference
         {
-          Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-          Id = "Bearer"
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new List<string>()
         }
-      },
-            // Value: List<string> (Scopes)
-            new List<string>()
-    }
-  });
+    });
 });
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "1234567890qwertyuiopgsdgsdgsdgsdgsdgsdgsdgdsgsdgsdgsdgdsgsdgsdgdsgsdrewwetwetewtwetewtewtwetwetwetewweewrwererwerwerewrwerwerwerwe";
@@ -101,10 +106,15 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend",
       policy =>
       {
-          policy.WithOrigins("http://localhost:3000", "http://localhost:5173", "https://fe-render.onrender.com")
-           .AllowAnyHeader()
-           .AllowAnyMethod()
-           .AllowCredentials();
+          policy.WithOrigins(
+              "http://localhost:3000",
+              "http://localhost:5173",
+              "https://fe-render.onrender.com",
+              "https://shorten-url-2zif.onrender.com" // Thêm domain service kia vào whitelist
+          )
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
       });
 });
 
