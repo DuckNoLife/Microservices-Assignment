@@ -17,17 +17,25 @@ public class EmailService : IEmailService
 
     public async Task SendEmailAsync(string to, string subject, string body)
     {
-        // 1. Lấy thông tin từ Render Environment
+        // 1. Lấy thông tin từ cấu hình (Render Environment hoặc appsettings.json)
         var emailSettings = _configuration.GetSection("EmailSettings");
-        var emailFrom = emailSettings["Email"];    // Sẽ lấy: Taolaita789@outlook.com
-        var password = emailSettings["Password"];  // Sẽ lấy: ppadffohngomimlc
 
-        // 2. Cấu hình Server OUTLOOK
-        var host = "smtp.office365.com";
+        // QUAN TRỌNG: Lấy thông tin đăng nhập
+        var emailLogin = emailSettings["Email"];    // Đây là cái mail lạ lạ (9c8522...)
+        var password = emailSettings["Password"];   // Đây là mã Key dài (xsmtpsib...)
+
+        // Sender Name: Khi gửi mail sẽ hiện tên này (Bạn có thể sửa lại)
+        var senderName = "Do An Tot Nghiep";
+        // Sender Email: Brevo yêu cầu email gửi (From) phải là email bạn đã Verify
+        // (Là cái email taolaita789@gmail.com trong Profile của bạn)
+        var senderEmail = "taolaita789@gmail.com";
+
+        // 2. CẤU HÌNH CỨNG CHO BREVO (Để đảm bảo không bao giờ sai)
+        var host = "smtp-relay.brevo.com";
         var port = 587;
 
         var email = new MimeMessage();
-        email.From.Add(MailboxAddress.Parse(emailFrom));
+        email.From.Add(new MailboxAddress(senderName, senderEmail));
         email.To.Add(MailboxAddress.Parse(to));
         email.Subject = subject;
 
@@ -38,24 +46,26 @@ public class EmailService : IEmailService
         using var smtp = new SmtpClient();
         try
         {
-            smtp.Timeout = 20000; // 20 giây
+            smtp.Timeout = 10000; // 10 giây
 
-            Console.WriteLine($"[Outlook] Kết nối đến {host}:{port} bằng {emailFrom}...");
+            Console.WriteLine($"[Brevo SMTP] Connecting to {host}:{port}...");
 
-            // BẮT BUỘC: Outlook dùng StartTls
+            // BẮT BUỘC: Brevo dùng StartTls
             await smtp.ConnectAsync(host, port, SecureSocketOptions.StartTls);
 
-            Console.WriteLine("[Outlook] Đang đăng nhập...");
-            await smtp.AuthenticateAsync(emailFrom, password);
+            Console.WriteLine($"[Brevo SMTP] Authenticating as {emailLogin}...");
 
-            Console.WriteLine("[Outlook] Đang gửi mail...");
+            // Đăng nhập bằng tài khoản Login riêng của SMTP
+            await smtp.AuthenticateAsync(emailLogin, password);
+
+            Console.WriteLine("[Brevo SMTP] Sending...");
             await smtp.SendAsync(email);
 
-            Console.WriteLine("[Outlook] --> GỬI THÀNH CÔNG!");
+            Console.WriteLine("[Brevo SMTP] --> SUCCESS! Email sent.");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Outlook LỖI] {ex.Message}");
+            Console.WriteLine($"[Brevo ERROR] {ex.Message}");
             throw;
         }
         finally
