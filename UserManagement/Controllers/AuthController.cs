@@ -24,7 +24,7 @@ namespace UserManagement.Controllers
                               ITokenService tokenService,
                               IConfiguration config,
                               IEmailService emailService,
-                              IUrlShortenerClient urlShortener) 
+                              IUrlShortenerClient urlShortener)
         {
             _context = context;
             _tokenService = tokenService;
@@ -138,7 +138,7 @@ namespace UserManagement.Controllers
             }
         }
 
-        // 4. QUÊN MẬT KHẨU (ĐÃ NÂNG CẤP: Rút gọn link reset)
+        // 4. QUÊN MẬT KHẨU (ĐÃ NÂNG CẤP: Rút gọn link reset + Fix lỗi 502)
         [HttpPost("/forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto request)
         {
@@ -164,20 +164,28 @@ namespace UserManagement.Controllers
             // Link gốc (dài)
             var longResetLink = $"{frontendUrl}/reset-password?token={token}";
 
-    
-            string finalLink = longResetLink; // Mặc định dùng link dài
+            // --- ĐOẠN CODE SỬA LOGIC Ở ĐÂY ---
+            string finalLink = longResetLink; // Mặc định dùng link dài trước
             try
             {
                 var shortLink = await _urlShortener.ShortenUrlAsync(longResetLink);
-                if (!string.IsNullOrEmpty(shortLink))
+
+                // Logic: Nếu có link ngắn VÀ link đó không phải là trang HTML lỗi (502 Bad Gateway)
+                if (!string.IsNullOrEmpty(shortLink) && !shortLink.Contains("<!DOCTYPE html>"))
                 {
-                    finalLink = shortLink; // Nếu rút gọn thành công thì dùng link ngắn
+                    finalLink = shortLink; // Lúc này mới tin tưởng dùng link ngắn
+                }
+                else
+                {
+                    Console.WriteLine("[Warning] Shortener trả về dữ liệu rác hoặc HTML lỗi. Dùng link dài.");
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Nếu lỗi kết nối service shortener thì kệ, vẫn gửi link dài
+                // Nếu lỗi kết nối service shortener thì log ra console và kệ, vẫn gửi link dài
+                Console.WriteLine($"[Warning] Lỗi rút gọn link: {ex.Message}. Đang dùng link dài.");
             }
+            // ----------------------------------
 
             // Gửi email chứa link (ngắn hoặc dài)
             await _emailService.SendEmailAsync(user.Email, "Reset Password Request", $"Click here to reset: {finalLink}");
