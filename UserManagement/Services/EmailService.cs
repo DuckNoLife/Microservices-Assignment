@@ -27,7 +27,7 @@ public class EmailService : IEmailService
         // Sender phải là email bạn đã verify trong Brevo (Email cá nhân của bạn)
         // Tôi để cứng email Gmail của bạn ở đây để chắc chắn chạy
         var senderEmail = "taolaita789@gmail.com";
-        var senderName = "Do An Tot Nghiep";
+        var senderName = "Forgot password";
 
         // 3. Tạo cục dữ liệu JSON theo chuẩn của Brevo API
         var payload = new
