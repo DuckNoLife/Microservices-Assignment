@@ -1,6 +1,7 @@
-version: '3.4'
+﻿version: '3.4'
 
 services:
+  # 1. SERVICE USER
   userservice:
     image: userservice-image
     build:
@@ -15,6 +16,7 @@ services:
     depends_on:
       - sqlserver
 
+  # 2. DATABASE
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
@@ -22,3 +24,15 @@ services:
       - MSSQL_SA_PASSWORD=Password123!
     ports:
       - "1433:1433"
+
+  # 3. API GATEWAY (Đã sửa lỗi)
+  gateway:
+    build:
+      context: ./ApiGateway
+      dockerfile: Dockerfile
+    ports:
+      - "5000:8080"  # Map cổng 8080 của container (.NET 8) ra 5000
+    depends_on:
+      - userservice
+      - sqlserver
+      # Đã xóa dòng '- shortenurl-api' đi vì file này chưa có service đó
