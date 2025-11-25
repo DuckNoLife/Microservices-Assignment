@@ -8,19 +8,19 @@ using UserManagement.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // -----------------------------------------------------------------
-// 1. KẾT NỐI DATABASE (FIX CUỐI CÙNG: LOẠI BỎ CHUỖI DỰ PHÒNG GÂY LỖI)
+// 1. KẾT NỐI DATABASE (FIX CUỐI CÙNG: Lấy BIẾN MÔI TRƯỜNG TRỰC TIẾP)
 // -----------------------------------------------------------------
 
-// Lấy chuỗi kết nối từ cấu hình (Render sẽ cung cấp chuỗi Postgres)
-// Đã xóa cơ chế dự phòng gây lỗi. Chỉ lấy biến môi trường.
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+// Lấy chuỗi kết nối từ biến môi trường (Render sẽ cung cấp chuỗi Postgres)
+// Nếu biến môi trường không tồn tại, nó sẽ trả về NULL.
+var connectionString = builder.Configuration["ConnectionStrings:DefaultConnection"];
+
 
 if (string.IsNullOrEmpty(connectionString))
 {
-    // Nếu biến môi trường bị lỗi, ứng dụng phải dừng lại để tránh lỗi format DB
+    // Nếu biến môi trường bị lỗi hoặc rỗng, ứng dụng sẽ crash ngay 
     throw new Exception("FATAL: Connection string is missing. Please check the 'ConnectionStrings__DefaultConnection' variable on Render.");
 }
-
 
 builder.Services.AddDbContext<UserDbContext>(options =>
 {
@@ -124,8 +124,7 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        // Nếu lỗi, nó sẽ báo lỗi chuẩn và dừng lại, thay vì báo lỗi format vô lý
-        Console.WriteLine("--> Error creating database: " + ex.Message);
+        Console.WriteLine("--> Error connecting database: " + ex.Message);
     }
 }
 
