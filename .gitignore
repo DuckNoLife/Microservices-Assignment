@@ -1,0 +1,8 @@
+# Delete trash files
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+appsettings.Development.json

@@ -1,0 +1,22 @@
+# 1. Dùng ?nh SDK ?? Build code (nh? máy b?n ?ang có VS)
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /app
+
+# Copy file csproj và t?i th? vi?n v?
+COPY *.csproj ./
+RUN dotnet restore
+
+# Copy toàn b? code còn l?i và Build ra b?n Release
+COPY . ./
+RUN dotnet publish -c Release -o /app/publish
+
+# 2. Dùng ?nh Runtime ?? ch?y (nh? h?n, ch? ?? ch?y app)
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+COPY --from=build /app/publish .
+
+# M? c?ng 8080 (C?ng m?c ??nh c?a .NET 8 trong Docker)
+EXPOSE 8080
+
+# Ch?y ?ng d?ng
+ENTRYPOINT ["dotnet", "UserManagement.dll"]
