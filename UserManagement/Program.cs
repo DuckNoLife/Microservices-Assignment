@@ -8,16 +8,16 @@ using UserManagement.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // -----------------------------------------------------------------
-// 1. KẾT NỐI DATABASE (FIX CỨNG LỖI DỰ PHÒNG CHUỖI KẾT NỐI SAI)
+// 1. KẾT NỐI DATABASE (FIX CUỐI CÙNG: LOẠI BỎ CHUỖI DỰ PHÒNG GÂY LỖI)
 // -----------------------------------------------------------------
 
 // Lấy chuỗi kết nối từ cấu hình (Render sẽ cung cấp chuỗi Postgres)
-// Nếu Render không cung cấp, connectionString sẽ là NULL (ứng dụng sẽ báo lỗi ngay)
+// Nếu biến môi trường bị lỗi, connectionString sẽ là NULL
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 if (string.IsNullOrEmpty(connectionString))
 {
-    // Đây là lỗi FATAL. Ứng dụng phải dừng lại ngay để tránh lỗi format DB
+    // FIX LỖI: Đây là lỗi FATAL. Ứng dụng sẽ dừng lại và không cố dùng chuỗi SQL Server cũ
     throw new Exception("FATAL: Connection string is missing. Please check the 'ConnectionStrings__DefaultConnection' variable on Render.");
 }
 
@@ -125,7 +125,7 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         // Nếu lỗi, nó sẽ báo lỗi chuẩn và dừng lại, thay vì báo lỗi format vô lý
-        Console.WriteLine("--> Error creating database: " + ex.Message);
+        Console.WriteLine("--> Error connecting database: " + ex.Message);
     }
 }
 
